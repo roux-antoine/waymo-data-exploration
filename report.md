@@ -15,12 +15,12 @@ Recordings of situations like:
 - etc
 are very interesting to develop the 'brains' of an autonomous vehicle (whether it is to develop expert models based on rules, for fully learnt models, for hybrid models etc). So my goal was to extract some interesting events from the scenarios.
 
-TODO python, using the protos etc
+I decided to work with Python as it makes it very easy to generate plots, and there are no strong speed / efficiency requirements for my use case. In practice, the data is provided as protobuffs, so _any_ language could be used to load it.
 
 ## I.c. The data
-Throughout the project, I worked with the first "chunk" of data (TODO name), which contains N scenarios.
+Throughout the project, I worked with the first "chunk" of data (uncompressed_scenario_training_training.tfrecord-00000-of-01000), which contains 446 scenarios.
 
-In order to understand what the scenarios look like, I started by writing a set of functions that represent the full scene as an iamge. Here are examples for what the scenes can look like:
+In order to understand what the scenarios look like, I started by writing a set of functions that represent the full scene as an image. Here are examples for what the scenes can look like:
 
 ![An urban scenario](images/0.png)
 ![foo](images/11.png)
@@ -39,12 +39,10 @@ There are a lot of things going on in this urban scenario. Here is how to interp
 - dashed black rectangles represent road bumps 
 
 
-These images are great to understand what a scenario looks like overall, but agents can be appear on top of each other if they happened to be at the same location at different points in time. So I wrote a set of functions to generate a video for each scenario:
+These images are great to understand what a scenario looks like overall, but agents can be appear on top of each other if they happened to be at the same location at different points in time. So I wrote a set of functions to generate a video for each scenario, here is the video corresponding to the second image above:
 
-![foo](images/video.mp4)
+https://user-images.githubusercontent.com/33998220/163914334-7a473561-b671-46d2-aa31-201d165f85a8.mp4
 
-
-TODO if the video embedding works, add some notes about tracking, the fact that the SDC "discovers" agents as they come into sight etc.
 
 ## I.d. Terminology
 
@@ -57,7 +55,6 @@ Here are definitions of concepts that will be frequently used in the project:
 - Lane center: the virtual line in the center of a road lane, computed by Waymo
 - Lane boundary: a road line or road edge element that defines the boundary of a lane, computed by Waymo
 - Lane polygon: a polygon representing the extent of a lane, computed by me
-
 
 
 # II. Finding out if agent is on a specific lane at a specific point in time
@@ -159,8 +156,6 @@ It would be interesting to find scenarios where traffic signals change from one 
 
 Using this function, we can for instance find out that scenario 2 has a lot of transitions from a `go` state to a `caution` state. This information can be used to extract events of specific road agents going through the traffic signal at this specific moment.
 
-TODO put a bit more stuff
-
 ## III.b Finding out agents who cross traffic signals
 
 I now have all the tools to find which road agents went through a traffic signal in scenarios where interesting transitions happened. So I wrote a function that, given a scenario and a traffic signal of interest, finds road agents that go through the traffic signal.
@@ -188,7 +183,8 @@ Here's a visualization of the results of the function for the traffic signal wit
 
 ## III.d. Conclusion
 
-TODO
+Though it makes a few assumptions (about lane successors, about min distance to the traffic signal to be considered as on the lane etc), this approach is pretty successful at finding agents crossing a traffic signal, in the human sense of the term.
+In terms of implementation, some logic could be introduced to pre-compute which agents are physically able to go through the intersection (based on their location at some point in time and their speed). In terms of logic, there is an edge-case that would currently be problematic: agents whose trajectory is perpendicular to the lane direction at the stop point. This would be pretty rare for vehicle (it would require a very aggressive lane change), but could be the case for cyclists, who have a much greater range of possible motions.
 
 # IV.Extracting scenarios related to stop signs
 
@@ -230,20 +226,18 @@ We can do the same for another stop sign where a very human behavior is found:
 ![stop_sign_scenario_48_id_178](images/stop_sign_scenario_48_id_178.png)
 ![stop_sign_scenario_48_id_178_profile](images/stop_sign_scenario_48_id_178_profile.png)
 
-We can see that the vehicle slowed down to almost a stop, then released the brakes, then slowed down again and finally went through.
+We can see that the vehicle slowed down to almost a stop, then released the brakes, then slowed down again and finally went through. This behavior makes a lot of sense when visualizing the scene video, where we see that two vehicles arrive at the 4 way stop at almost the same time:
 
-TODO if possible put the video where we see the other vehicle
+https://user-images.githubusercontent.com/33998220/163915829-38236c3f-bd6f-4fca-b8c5-fd4ff89e5f82.mp4
 
-TODO remark on the stop sign location being almost always before the lane, might skew the results
 
 ## IV.b. Conclusion
 
-TODO
-
+Because of the similiarities between the traffic signal and stop signs approaches, the conclusions drawn for the traffic signal use case are still valid here.
 
 # V. Remarks on the data format
 
-TODO
-
-remarks on strange stuff in the data, what I would do differently
-- not all lanes have a predecessor or successor -- makes sense but still
+Now that I've worked a bit with the data, I noticed a few interesting details that are worth discussing. Of course, I am conscious that this data is (very likely) a stripped down version of what Waymo is working with. Here are however a few comments on details I've noted or things I might have done differently:
+- Not all lanes have a predecessor or a successor. While this makes sense in some cases (if there was a dead end street for instance), it also happens for lanes associated with a traffic signal (e.g. the second rightmost traffic signal of the first scenario), which is surprising as agents on this lane definitely have a lane to go to in real life.
+- There is no stop points associated with stop signs. While traffic signals come with an associated stop point on the associated lane, the stop points only have a single location, which seems to be the location of the actual sign in real life. However in real life, the line where agents are supposed to stop is not always the closest point from the lane to the actual sign.
+- The agents tracks are very jittery and do not seem to have gone through tracking. This is probably done by design to not hash out the work too much in the challenge, but means that an agent sometimes disappears and reappears with a different ID.
